@@ -1,0 +1,3330 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "UTF-8 and Unicode Analysis API",
+    "version": "1.1.0",
+    "license": {
+      "name": "Apache License 2.0",
+      "identifier": "Apache-2.0"
+    },
+    "summary": "Validate and inspect UTF-8, Unicode text, and JSON.",
+    "description": "Strict, bounded analysis for hidden characters, mojibake, normalization, mixed scripts and confusables, text counts, JSON syntax, and Unicode code points. Requests are not persisted or forwarded by application code."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Host serving this documentation"
+    }
+  ],
+  "security": [],
+  "tags": [
+    {
+      "name": "Service",
+      "description": "Deployment and engine metadata."
+    },
+    {
+      "name": "Detection",
+      "description": "Review suspicious text artifacts."
+    },
+    {
+      "name": "Unicode",
+      "description": "Unicode normalization and identity review."
+    },
+    {
+      "name": "Text",
+      "description": "Text-unit measurements."
+    },
+    {
+      "name": "JSON",
+      "description": "JSON syntax validation."
+    }
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "tags": [
+          "Service"
+        ],
+        "summary": "Check API health",
+        "description": "Returns deployed engine, hidden-ruleset, and runtime Unicode versions. Query parameters are rejected and this endpoint does not consume quota.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "The API is available.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "status": "ok",
+                  "deployment": "api-v1",
+                  "engine_version": "0.2.0",
+                  "ruleset_version": "hidden-2026-08-08",
+                  "unicode_version": "runtime-dependent"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowedGet"
+          }
+        }
+      }
+    },
+    "/v1/hidden-characters": {
+      "post": {
+        "tags": [
+          "Detection"
+        ],
+        "summary": "Analyze hidden characters",
+        "description": "Reports invisible, formatting, bidirectional, whitespace, and control characters with exact offsets. Findings never include a raw character field.",
+        "operationId": "analyzeHiddenCharacters",
+        "requestBody": {
+          "required": true,
+          "description": "Strict envelope; profile is accepted only by this endpoint.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisRequest"
+              },
+              "examples": {
+                "text": {
+                  "value": {
+                    "input": {
+                      "kind": "text",
+                      "value": "pay​load"
+                    },
+                    "profile": "general"
+                  }
+                },
+                "bytes": {
+                  "value": {
+                    "input": {
+                      "kind": "bytes",
+                      "base64": "cGF5bG9hZA==",
+                      "declared_charset": "utf-8"
+                    },
+                    "profile": "identifier"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hidden-character analysis completed or original bytes were invalid UTF-8.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HiddenAnalysisResponse"
+                },
+                "examples": {
+                  "findings": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "issues_found",
+                      "engine_version": "0.2.0",
+                      "ruleset_version": "hidden-2026-08-08",
+                      "unicode_version": "runtime-dependent",
+                      "profile": "general",
+                      "input": {
+                        "kind": "text",
+                        "bytes": 10,
+                        "utf16_code_units": 8,
+                        "unicode_scalars": 8,
+                        "lines": 1,
+                        "offset_basis": "utf8-encoding-of-input-string"
+                      },
+                      "encoding": {
+                        "valid_utf8": true,
+                        "basis": "strict-request-envelope-and-reencoded-text"
+                      },
+                      "summary": {
+                        "total": 1,
+                        "returned": 1,
+                        "truncated": false
+                      },
+                      "findings": [
+                        {
+                          "id": "f_1",
+                          "rule": "hidden.zero_width_space",
+                          "category": "hidden_text",
+                          "severity": "warning",
+                          "title": "Zero-width space",
+                          "location": {
+                            "byte_start": 3,
+                            "byte_end": 6,
+                            "utf16_start": 3,
+                            "utf16_end": 4,
+                            "scalar_start": 3,
+                            "scalar_end": 4,
+                            "line": 1,
+                            "column": 4
+                          },
+                          "observed": {
+                            "escaped": "\\u200B",
+                            "code_points": [
+                              "U+200B"
+                            ],
+                            "utf8_hex": "E2 80 8B"
+                          },
+                          "explanation": "This character has no visible width and can separate otherwise adjacent text."
+                        }
+                      ]
+                    }
+                  },
+                  "invalidUtf8": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "invalid_utf8",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "bytes",
+                        "bytes": 1,
+                        "offset_basis": "submitted-bytes"
+                      },
+                      "encoding": {
+                        "valid_utf8": false,
+                        "basis": "submitted-bytes",
+                        "first_invalid_byte": 0
+                      },
+                      "skipped": [
+                        {
+                          "check": "hidden-characters",
+                          "reason": "invalid_utf8"
+                        }
+                      ],
+                      "ruleset_version": "hidden-2026-08-08",
+                      "summary": {
+                        "total": 0,
+                        "returned": 0,
+                        "truncated": false
+                      },
+                      "findings": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalysisBadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowedPost"
+          },
+          "413": {
+            "$ref": "#/components/responses/InputTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedRequestEncoding"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/LimiterUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/mojibake": {
+      "post": {
+        "tags": [
+          "Detection"
+        ],
+        "summary": "Detect likely mojibake",
+        "description": "Flags U+FFFD and complete UTF-8 sequences that appear to have been decoded through Latin-1 or Windows-1252. Results are heuristics, not proof or repair.",
+        "operationId": "detectMojibake",
+        "requestBody": {
+          "required": true,
+          "description": "Strict JSON envelope. Tool endpoints reject profile and every unknown property.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolRequest"
+              },
+              "examples": {
+                "text": {
+                  "summary": "Review a likely UTF-8-as-legacy-decoding artifact",
+                  "value": {
+                    "input": {
+                      "kind": "text",
+                      "value": "cafÃ©"
+                    }
+                  }
+                },
+                "bytes": {
+                  "summary": "Submit original UTF-8 bytes as canonical Base64",
+                  "value": {
+                    "input": {
+                      "kind": "bytes",
+                      "base64": "Y2Fmw6k=",
+                      "declared_charset": "utf-8"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mojibake review completed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/MojibakeResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolInvalidUtf8Response"
+                    }
+                  ]
+                },
+                "examples": {
+                  "completed": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "issues_found",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "text",
+                        "bytes": 7,
+                        "utf16_code_units": 5,
+                        "unicode_scalars": 5,
+                        "lines": 1,
+                        "offset_basis": "utf8-encoding-of-input-string"
+                      },
+                      "encoding": {
+                        "valid_utf8": true,
+                        "basis": "strict-request-envelope-and-reencoded-text"
+                      },
+                      "check": "mojibake",
+                      "summary": {
+                        "total": 1,
+                        "returned": 1,
+                        "truncated": false
+                      },
+                      "findings": [
+                        {
+                          "id": "mojibake_1",
+                          "rule": "mojibake.utf8_bytes_as_legacy_text",
+                          "category": "mojibake",
+                          "severity": "warning",
+                          "title": "Possible UTF-8 bytes decoded as a legacy encoding",
+                          "location": {
+                            "byte_start": 3,
+                            "byte_end": 7,
+                            "utf16_start": 3,
+                            "utf16_end": 5,
+                            "scalar_start": 3,
+                            "scalar_end": 5,
+                            "line": 1,
+                            "column": 4,
+                            "line_end": 1,
+                            "column_end": 6
+                          },
+                          "observed": {
+                            "characters": [
+                              {
+                                "escaped": "\\u00C3",
+                                "code_point": "U+00C3",
+                                "utf8_hex": "C3 83",
+                                "name": "LATIN CAPITAL LETTER A WITH TILDE",
+                                "category": "Lu",
+                                "script": "Latin",
+                                "location": {
+                                  "byte_start": 3,
+                                  "byte_end": 5,
+                                  "utf16_start": 3,
+                                  "utf16_end": 4,
+                                  "scalar_start": 3,
+                                  "scalar_end": 4,
+                                  "line": 1,
+                                  "column": 4,
+                                  "line_end": 1,
+                                  "column_end": 5
+                                }
+                              },
+                              {
+                                "escaped": "\\u00A9",
+                                "code_point": "U+00A9",
+                                "utf8_hex": "C2 A9",
+                                "name": "COPYRIGHT SIGN",
+                                "category": "So",
+                                "script": "Common",
+                                "location": {
+                                  "byte_start": 5,
+                                  "byte_end": 7,
+                                  "utf16_start": 4,
+                                  "utf16_end": 5,
+                                  "scalar_start": 4,
+                                  "scalar_end": 5,
+                                  "line": 1,
+                                  "column": 5,
+                                  "line_end": 1,
+                                  "column_end": 6
+                                }
+                              }
+                            ],
+                            "interpreted_bytes_hex": "C3 A9"
+                          },
+                          "possible_intended_character": {
+                            "escaped": "\\u00E9",
+                            "code_point": "U+00E9",
+                            "utf8_hex": "C3 A9",
+                            "name": "LATIN SMALL LETTER E WITH ACUTE",
+                            "category": "Ll",
+                            "script": "Latin"
+                          },
+                          "explanation": "These displayed characters map to one well-formed UTF-8 sequence when read as Latin-1 or Windows-1252 bytes."
+                        }
+                      ]
+                    }
+                  },
+                  "invalidUtf8": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "invalid_utf8",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "bytes",
+                        "bytes": 1,
+                        "offset_basis": "submitted-bytes"
+                      },
+                      "encoding": {
+                        "valid_utf8": false,
+                        "basis": "submitted-bytes",
+                        "first_invalid_byte": 0
+                      },
+                      "skipped": [
+                        {
+                          "check": "mojibake",
+                          "reason": "invalid_utf8"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalysisBadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowedPost"
+          },
+          "413": {
+            "$ref": "#/components/responses/InputTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedRequestEncoding"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/LimiterUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/normalization": {
+      "post": {
+        "tags": [
+          "Unicode"
+        ],
+        "summary": "Check Unicode normalization",
+        "description": "Compares text with NFC, NFD, NFKC, and NFKD. It returns form flags, metrics, and bounded changed ranges instead of full normalized strings.",
+        "operationId": "checkUnicodeNormalization",
+        "requestBody": {
+          "required": true,
+          "description": "Strict JSON envelope. Tool endpoints reject profile and every unknown property.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolRequest"
+              },
+              "examples": {
+                "text": {
+                  "summary": "Compare decomposed text with all four normalization forms",
+                  "value": {
+                    "input": {
+                      "kind": "text",
+                      "value": "Café"
+                    }
+                  }
+                },
+                "bytes": {
+                  "summary": "Submit original UTF-8 bytes as canonical Base64",
+                  "value": {
+                    "input": {
+                      "kind": "bytes",
+                      "base64": "Y2Fmw6k=",
+                      "declared_charset": "utf-8"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Normalization comparison completed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/NormalizationResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolInvalidUtf8Response"
+                    }
+                  ]
+                },
+                "examples": {
+                  "completed": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "changes_found",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "text",
+                        "bytes": 6,
+                        "utf16_code_units": 5,
+                        "unicode_scalars": 5,
+                        "lines": 1,
+                        "offset_basis": "utf8-encoding-of-input-string"
+                      },
+                      "encoding": {
+                        "valid_utf8": true,
+                        "basis": "strict-request-envelope-and-reencoded-text"
+                      },
+                      "check": "normalization",
+                      "forms": {
+                        "NFC": {
+                          "is_normalized": false,
+                          "metrics": {
+                            "bytes": 5,
+                            "unicode_scalars": 4,
+                            "utf16_code_units": 4,
+                            "lines": 1
+                          }
+                        },
+                        "NFD": {
+                          "is_normalized": true,
+                          "metrics": {
+                            "bytes": 6,
+                            "unicode_scalars": 5,
+                            "utf16_code_units": 5,
+                            "lines": 1
+                          }
+                        },
+                        "NFKC": {
+                          "is_normalized": false,
+                          "metrics": {
+                            "bytes": 5,
+                            "unicode_scalars": 4,
+                            "utf16_code_units": 4,
+                            "lines": 1
+                          }
+                        },
+                        "NFKD": {
+                          "is_normalized": true,
+                          "metrics": {
+                            "bytes": 6,
+                            "unicode_scalars": 5,
+                            "utf16_code_units": 5,
+                            "lines": 1
+                          }
+                        }
+                      },
+                      "summary": {
+                        "total": 2,
+                        "returned": 2,
+                        "truncated": false
+                      },
+                      "findings": [
+                        {
+                          "id": "normalization_1",
+                          "rule": "normalization.not_nfc",
+                          "category": "normalization",
+                          "severity": "information",
+                          "title": "Text differs from NFC",
+                          "form": "NFC",
+                          "location": {
+                            "byte_start": 3,
+                            "byte_end": 6,
+                            "utf16_start": 3,
+                            "utf16_end": 5,
+                            "scalar_start": 3,
+                            "scalar_end": 5,
+                            "line": 1,
+                            "column": 4,
+                            "line_end": 1,
+                            "column_end": 6
+                          },
+                          "observed": {
+                            "characters": [
+                              {
+                                "escaped": "\\u0065",
+                                "code_point": "U+0065",
+                                "utf8_hex": "65",
+                                "name": "LATIN SMALL LETTER E",
+                                "category": "Ll",
+                                "script": "Latin",
+                                "location": {
+                                  "byte_start": 3,
+                                  "byte_end": 4,
+                                  "utf16_start": 3,
+                                  "utf16_end": 4,
+                                  "scalar_start": 3,
+                                  "scalar_end": 4,
+                                  "line": 1,
+                                  "column": 4,
+                                  "line_end": 1,
+                                  "column_end": 5
+                                }
+                              },
+                              {
+                                "escaped": "\\u0301",
+                                "code_point": "U+0301",
+                                "utf8_hex": "CC 81",
+                                "name": "COMBINING ACUTE ACCENT",
+                                "category": "Mn",
+                                "script": "Inherited",
+                                "location": {
+                                  "byte_start": 4,
+                                  "byte_end": 6,
+                                  "utf16_start": 4,
+                                  "utf16_end": 5,
+                                  "scalar_start": 4,
+                                  "scalar_end": 5,
+                                  "line": 1,
+                                  "column": 5,
+                                  "line_end": 1,
+                                  "column_end": 6
+                                }
+                              }
+                            ],
+                            "total": 2,
+                            "returned": 2,
+                            "truncated": false
+                          },
+                          "normalized": {
+                            "characters": [
+                              {
+                                "escaped": "\\u00E9",
+                                "code_point": "U+00E9",
+                                "utf8_hex": "C3 A9",
+                                "name": "LATIN SMALL LETTER E WITH ACUTE",
+                                "category": "Ll",
+                                "script": "Latin",
+                                "location": {
+                                  "byte_start": 3,
+                                  "byte_end": 5,
+                                  "utf16_start": 3,
+                                  "utf16_end": 4,
+                                  "scalar_start": 3,
+                                  "scalar_end": 4,
+                                  "line": 1,
+                                  "column": 4,
+                                  "line_end": 1,
+                                  "column_end": 5
+                                }
+                              }
+                            ],
+                            "total": 1,
+                            "returned": 1,
+                            "truncated": false
+                          },
+                          "explanation": "Normalizing with Unicode NFC changes the code-point sequence in this range. Normalization can affect exact matching and identifier comparison."
+                        },
+                        {
+                          "id": "normalization_2",
+                          "rule": "normalization.not_nfkc",
+                          "category": "normalization",
+                          "severity": "information",
+                          "title": "Text differs from NFKC",
+                          "form": "NFKC",
+                          "location": {
+                            "byte_start": 3,
+                            "byte_end": 6,
+                            "utf16_start": 3,
+                            "utf16_end": 5,
+                            "scalar_start": 3,
+                            "scalar_end": 5,
+                            "line": 1,
+                            "column": 4,
+                            "line_end": 1,
+                            "column_end": 6
+                          },
+                          "observed": {
+                            "characters": [
+                              {
+                                "escaped": "\\u0065",
+                                "code_point": "U+0065",
+                                "utf8_hex": "65",
+                                "name": "LATIN SMALL LETTER E",
+                                "category": "Ll",
+                                "script": "Latin",
+                                "location": {
+                                  "byte_start": 3,
+                                  "byte_end": 4,
+                                  "utf16_start": 3,
+                                  "utf16_end": 4,
+                                  "scalar_start": 3,
+                                  "scalar_end": 4,
+                                  "line": 1,
+                                  "column": 4,
+                                  "line_end": 1,
+                                  "column_end": 5
+                                }
+                              },
+                              {
+                                "escaped": "\\u0301",
+                                "code_point": "U+0301",
+                                "utf8_hex": "CC 81",
+                                "name": "COMBINING ACUTE ACCENT",
+                                "category": "Mn",
+                                "script": "Inherited",
+                                "location": {
+                                  "byte_start": 4,
+                                  "byte_end": 6,
+                                  "utf16_start": 4,
+                                  "utf16_end": 5,
+                                  "scalar_start": 4,
+                                  "scalar_end": 5,
+                                  "line": 1,
+                                  "column": 5,
+                                  "line_end": 1,
+                                  "column_end": 6
+                                }
+                              }
+                            ],
+                            "total": 2,
+                            "returned": 2,
+                            "truncated": false
+                          },
+                          "normalized": {
+                            "characters": [
+                              {
+                                "escaped": "\\u00E9",
+                                "code_point": "U+00E9",
+                                "utf8_hex": "C3 A9",
+                                "name": "LATIN SMALL LETTER E WITH ACUTE",
+                                "category": "Ll",
+                                "script": "Latin",
+                                "location": {
+                                  "byte_start": 3,
+                                  "byte_end": 5,
+                                  "utf16_start": 3,
+                                  "utf16_end": 4,
+                                  "scalar_start": 3,
+                                  "scalar_end": 4,
+                                  "line": 1,
+                                  "column": 4,
+                                  "line_end": 1,
+                                  "column_end": 5
+                                }
+                              }
+                            ],
+                            "total": 1,
+                            "returned": 1,
+                            "truncated": false
+                          },
+                          "explanation": "Normalizing with Unicode NFKC changes the code-point sequence in this range. Normalization can affect exact matching and identifier comparison."
+                        }
+                      ]
+                    }
+                  },
+                  "invalidUtf8": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "invalid_utf8",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "bytes",
+                        "bytes": 1,
+                        "offset_basis": "submitted-bytes"
+                      },
+                      "encoding": {
+                        "valid_utf8": false,
+                        "basis": "submitted-bytes",
+                        "first_invalid_byte": 0
+                      },
+                      "skipped": [
+                        {
+                          "check": "normalization",
+                          "reason": "invalid_utf8"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalysisBadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowedPost"
+          },
+          "413": {
+            "$ref": "#/components/responses/InputTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedRequestEncoding"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/LimiterUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/mixed-script-confusables": {
+      "post": {
+        "tags": [
+          "Unicode"
+        ],
+        "summary": "Review mixed scripts and confusables",
+        "description": "Summarizes writing systems and flags suspicious cross-script characters. Confusable matching is an explicitly versioned Greek/Cyrillic-to-ASCII curated subset, not complete UTS #39 data.",
+        "operationId": "reviewMixedScriptConfusables",
+        "requestBody": {
+          "required": true,
+          "description": "Strict JSON envelope. Tool endpoints reject profile and every unknown property.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolRequest"
+              },
+              "examples": {
+                "text": {
+                  "summary": "Review a Cyrillic lookalike in Latin text",
+                  "value": {
+                    "input": {
+                      "kind": "text",
+                      "value": "pаypal"
+                    }
+                  }
+                },
+                "bytes": {
+                  "summary": "Submit original UTF-8 bytes as canonical Base64",
+                  "value": {
+                    "input": {
+                      "kind": "bytes",
+                      "base64": "Y2Fmw6k=",
+                      "declared_charset": "utf-8"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mixed-script and confusable review completed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/MixedScriptResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolInvalidUtf8Response"
+                    }
+                  ]
+                },
+                "examples": {
+                  "completed": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "issues_found",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "text",
+                        "bytes": 7,
+                        "utf16_code_units": 6,
+                        "unicode_scalars": 6,
+                        "lines": 1,
+                        "offset_basis": "utf8-encoding-of-input-string"
+                      },
+                      "encoding": {
+                        "valid_utf8": true,
+                        "basis": "strict-request-envelope-and-reencoded-text"
+                      },
+                      "check": "mixed_scripts_and_confusables",
+                      "confusable_data": {
+                        "kind": "curated_subset",
+                        "version": "curated-greek-cyrillic-to-ascii-2026-08-09",
+                        "source_scripts": [
+                          "Cyrillic",
+                          "Greek"
+                        ],
+                        "target_script": "ASCII Latin",
+                        "uts39_complete": false
+                      },
+                      "scripts": [
+                        {
+                          "script": "Latin",
+                          "count": 5,
+                          "first_scalar": 0
+                        },
+                        {
+                          "script": "Cyrillic",
+                          "count": 1,
+                          "first_scalar": 1
+                        }
+                      ],
+                      "dominant_script": "Latin",
+                      "is_mixed_script": true,
+                      "expected_script_combination": false,
+                      "review_recommended": true,
+                      "summary": {
+                        "total": 1,
+                        "returned": 1,
+                        "truncated": false
+                      },
+                      "findings": [
+                        {
+                          "id": "script_1",
+                          "rule": "confusable.curated_ascii_lookalike",
+                          "category": "confusable",
+                          "severity": "warning",
+                          "title": "Curated cross-script lookalike",
+                          "location": {
+                            "byte_start": 1,
+                            "byte_end": 3,
+                            "utf16_start": 1,
+                            "utf16_end": 2,
+                            "scalar_start": 1,
+                            "scalar_end": 2,
+                            "line": 1,
+                            "column": 2,
+                            "line_end": 1,
+                            "column_end": 3
+                          },
+                          "observed": {
+                            "escaped": "\\u0430",
+                            "code_point": "U+0430",
+                            "utf8_hex": "D0 B0",
+                            "name": "CYRILLIC SMALL LETTER A",
+                            "category": "Ll",
+                            "script": "Cyrillic",
+                            "location": {
+                              "byte_start": 1,
+                              "byte_end": 3,
+                              "utf16_start": 1,
+                              "utf16_end": 2,
+                              "scalar_start": 1,
+                              "scalar_end": 2,
+                              "line": 1,
+                              "column": 2,
+                              "line_end": 1,
+                              "column_end": 3
+                            }
+                          },
+                          "explanation": "This non-Latin character resembles an ASCII Latin letter and appears in text that also uses Latin. Review it in names, links, and identifiers.",
+                          "looks_like": {
+                            "escaped": "\\u0061",
+                            "code_point": "U+0061",
+                            "utf8_hex": "61",
+                            "name": "LATIN SMALL LETTER A",
+                            "category": "Ll",
+                            "script": "Latin"
+                          },
+                          "confusable_data_version": "curated-greek-cyrillic-to-ascii-2026-08-09"
+                        }
+                      ]
+                    }
+                  },
+                  "invalidUtf8": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "invalid_utf8",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "bytes",
+                        "bytes": 1,
+                        "offset_basis": "submitted-bytes"
+                      },
+                      "encoding": {
+                        "valid_utf8": false,
+                        "basis": "submitted-bytes",
+                        "first_invalid_byte": 0
+                      },
+                      "skipped": [
+                        {
+                          "check": "mixed-script-confusables",
+                          "reason": "invalid_utf8"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalysisBadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowedPost"
+          },
+          "413": {
+            "$ref": "#/components/responses/InputTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedRequestEncoding"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/LimiterUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/text-counts": {
+      "post": {
+        "tags": [
+          "Text"
+        ],
+        "summary": "Count UTF-8 and Unicode text units",
+        "description": "Counts UTF-8 bytes, code points/scalars, locally segmented extended grapheme clusters, Unicode-aware words, CR/LF/CRLF lines, and UTF-16 JavaScript units.",
+        "operationId": "countUtf8Text",
+        "requestBody": {
+          "required": true,
+          "description": "Strict JSON envelope. Tool endpoints reject profile and every unknown property.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolRequest"
+              },
+              "examples": {
+                "text": {
+                  "summary": "Count text containing non-ASCII and non-BMP characters",
+                  "value": {
+                    "input": {
+                      "kind": "text",
+                      "value": "café\n😀"
+                    }
+                  }
+                },
+                "bytes": {
+                  "summary": "Submit original UTF-8 bytes as canonical Base64",
+                  "value": {
+                    "input": {
+                      "kind": "bytes",
+                      "base64": "Y2Fmw6k=",
+                      "declared_charset": "utf-8"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "All requested units were counted.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TextCountsResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolInvalidUtf8Response"
+                    }
+                  ]
+                },
+                "examples": {
+                  "completed": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "complete",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "text",
+                        "bytes": 10,
+                        "utf16_code_units": 7,
+                        "unicode_scalars": 6,
+                        "lines": 2,
+                        "offset_basis": "utf8-encoding-of-input-string"
+                      },
+                      "encoding": {
+                        "valid_utf8": true,
+                        "basis": "strict-request-envelope-and-reencoded-text"
+                      },
+                      "counts": {
+                        "utf8_bytes": 10,
+                        "unicode_code_points": 6,
+                        "unicode_scalars": 6,
+                        "grapheme_clusters": 6,
+                        "words": 1,
+                        "lines": 2,
+                        "javascript_string_units": 7
+                      }
+                    }
+                  },
+                  "invalidUtf8": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "invalid_utf8",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "bytes",
+                        "bytes": 1,
+                        "offset_basis": "submitted-bytes"
+                      },
+                      "encoding": {
+                        "valid_utf8": false,
+                        "basis": "submitted-bytes",
+                        "first_invalid_byte": 0
+                      },
+                      "skipped": [
+                        {
+                          "check": "text-counts",
+                          "reason": "invalid_utf8"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalysisBadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowedPost"
+          },
+          "413": {
+            "$ref": "#/components/responses/InputTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedRequestEncoding"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/LimiterUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/json-validation": {
+      "post": {
+        "tags": [
+          "JSON"
+        ],
+        "summary": "Validate JSON text",
+        "description": "Validates the submitted inner text as JSON, accepts every standard top-level type, rejects NaN and infinities, and returns stable source locations. Invalid inner JSON is a successful HTTP 200 domain result.",
+        "operationId": "validateJson",
+        "requestBody": {
+          "required": true,
+          "description": "Strict JSON envelope. Tool endpoints reject profile and every unknown property.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolRequest"
+              },
+              "examples": {
+                "text": {
+                  "summary": "Locate a syntax error in submitted JSON text",
+                  "value": {
+                    "input": {
+                      "kind": "text",
+                      "value": "{\"name\": }"
+                    }
+                  }
+                },
+                "bytes": {
+                  "summary": "Submit original UTF-8 bytes as canonical Base64",
+                  "value": {
+                    "input": {
+                      "kind": "bytes",
+                      "base64": "Y2Fmw6k=",
+                      "declared_charset": "utf-8"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON validation completed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/JsonValidationResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolInvalidUtf8Response"
+                    }
+                  ]
+                },
+                "examples": {
+                  "completed": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "invalid_json",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "text",
+                        "bytes": 10,
+                        "utf16_code_units": 10,
+                        "unicode_scalars": 10,
+                        "lines": 1,
+                        "offset_basis": "utf8-encoding-of-input-string"
+                      },
+                      "encoding": {
+                        "valid_utf8": true,
+                        "basis": "strict-request-envelope-and-reencoded-text"
+                      },
+                      "valid": false,
+                      "error": {
+                        "code": "expected_value",
+                        "message": "Expected a JSON value.",
+                        "line": 1,
+                        "column": 10,
+                        "character_offset": 9,
+                        "byte_offset": 9
+                      }
+                    }
+                  },
+                  "invalidUtf8": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "invalid_utf8",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "bytes",
+                        "bytes": 1,
+                        "offset_basis": "submitted-bytes"
+                      },
+                      "encoding": {
+                        "valid_utf8": false,
+                        "basis": "submitted-bytes",
+                        "first_invalid_byte": 0
+                      },
+                      "skipped": [
+                        {
+                          "check": "json-validation",
+                          "reason": "invalid_utf8"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalysisBadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowedPost"
+          },
+          "413": {
+            "$ref": "#/components/responses/InputTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedRequestEncoding"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/LimiterUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/code-points": {
+      "post": {
+        "tags": [
+          "Unicode"
+        ],
+        "summary": "Inspect Unicode code points",
+        "description": "Lists every code point with UTF-8 bytes, Unicode metadata, offsets, and a visible or escaped representation. This endpoint accepts at most 500 code points so its response is complete and bounded.",
+        "operationId": "inspectUnicodeCodePoints",
+        "requestBody": {
+          "required": true,
+          "description": "Strict JSON envelope. Tool endpoints reject profile and every unknown property.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolRequest"
+              },
+              "examples": {
+                "text": {
+                  "summary": "Inspect a BMP letter and a non-BMP emoji",
+                  "value": {
+                    "input": {
+                      "kind": "text",
+                      "value": "A😀"
+                    }
+                  }
+                },
+                "bytes": {
+                  "summary": "Submit original UTF-8 bytes as canonical Base64",
+                  "value": {
+                    "input": {
+                      "kind": "bytes",
+                      "base64": "Y2Fmw6k=",
+                      "declared_charset": "utf-8"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Every accepted code point was inspected.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/CodePointsResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolInvalidUtf8Response"
+                    }
+                  ]
+                },
+                "examples": {
+                  "completed": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "complete",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "text",
+                        "bytes": 5,
+                        "utf16_code_units": 3,
+                        "unicode_scalars": 2,
+                        "lines": 1,
+                        "offset_basis": "utf8-encoding-of-input-string"
+                      },
+                      "encoding": {
+                        "valid_utf8": true,
+                        "basis": "strict-request-envelope-and-reencoded-text"
+                      },
+                      "summary": {
+                        "total": 2,
+                        "returned": 2,
+                        "truncated": false
+                      },
+                      "characters": [
+                        {
+                          "index": 0,
+                          "code_point": "U+0041",
+                          "decimal": 65,
+                          "name": "LATIN CAPITAL LETTER A",
+                          "category": "Lu",
+                          "utf8_bytes": [
+                            65
+                          ],
+                          "utf8_hex": "41",
+                          "position": {
+                            "byte_start": 0,
+                            "byte_end": 1,
+                            "code_point_start": 0,
+                            "code_point_end": 1,
+                            "javascript_unit_start": 0,
+                            "javascript_unit_end": 1,
+                            "line": 1,
+                            "column": 1
+                          },
+                          "visible": "A"
+                        },
+                        {
+                          "index": 1,
+                          "code_point": "U+1F600",
+                          "decimal": 128512,
+                          "name": "GRINNING FACE",
+                          "category": "So",
+                          "utf8_bytes": [
+                            240,
+                            159,
+                            152,
+                            128
+                          ],
+                          "utf8_hex": "F0 9F 98 80",
+                          "position": {
+                            "byte_start": 1,
+                            "byte_end": 5,
+                            "code_point_start": 1,
+                            "code_point_end": 2,
+                            "javascript_unit_start": 1,
+                            "javascript_unit_end": 3,
+                            "line": 1,
+                            "column": 2
+                          },
+                          "visible": "😀"
+                        }
+                      ]
+                    }
+                  },
+                  "invalidUtf8": {
+                    "value": {
+                      "request_id": "req_0123456789abcdef0123456789abcdef",
+                      "status": "invalid_utf8",
+                      "engine_version": "0.2.0",
+                      "unicode_version": "runtime-dependent",
+                      "input": {
+                        "kind": "bytes",
+                        "bytes": 1,
+                        "offset_basis": "submitted-bytes"
+                      },
+                      "encoding": {
+                        "valid_utf8": false,
+                        "basis": "submitted-bytes",
+                        "first_invalid_byte": 0
+                      },
+                      "skipped": [
+                        {
+                          "check": "code-points",
+                          "reason": "invalid_utf8"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalysisBadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowedPost"
+          },
+          "413": {
+            "$ref": "#/components/responses/InputTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedRequestEncoding"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/LimiterUnavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "headers": {
+      "RequestId": {
+        "description": "Opaque request identifier.",
+        "schema": {
+          "$ref": "#/components/schemas/RequestId"
+        }
+      }
+    },
+    "schemas": {
+      "RequestId": {
+        "type": "string",
+        "pattern": "^req_[0-9a-f]{32}$",
+        "example": "req_0123456789abcdef0123456789abcdef"
+      },
+      "HealthResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "deployment",
+          "engine_version",
+          "ruleset_version",
+          "unicode_version"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          },
+          "deployment": {
+            "type": "string",
+            "const": "api-v1"
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "ruleset_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string",
+            "description": "Unicode database version supplied by the Python runtime."
+          }
+        }
+      },
+      "Profile": {
+        "type": "string",
+        "enum": [
+          "general",
+          "identifier"
+        ],
+        "default": "general"
+      },
+      "TextInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "value"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "text"
+          },
+          "value": {
+            "type": "string",
+            "description": "Unicode scalar text whose UTF-8 encoding is at most 32 KiB."
+          }
+        }
+      },
+      "ByteInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "base64",
+          "declared_charset"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "bytes"
+          },
+          "base64": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "description": "Canonical padded standard Base64 with no whitespace; decoded input is at most 32 KiB."
+          },
+          "declared_charset": {
+            "type": "string",
+            "const": "utf-8"
+          }
+        }
+      },
+      "AnalysisRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input"
+        ],
+        "properties": {
+          "input": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TextInput"
+              },
+              {
+                "$ref": "#/components/schemas/ByteInput"
+              }
+            ],
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "text": "#/components/schemas/TextInput",
+                "bytes": "#/components/schemas/ByteInput"
+              }
+            }
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          }
+        }
+      },
+      "ToolRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input"
+        ],
+        "properties": {
+          "input": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TextInput"
+              },
+              {
+                "$ref": "#/components/schemas/ByteInput"
+              }
+            ],
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "text": "#/components/schemas/TextInput",
+                "bytes": "#/components/schemas/ByteInput"
+              }
+            }
+          }
+        }
+      },
+      "InputMetrics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "bytes",
+          "utf16_code_units",
+          "unicode_scalars",
+          "lines",
+          "offset_basis"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "bytes"
+            ]
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "utf16_code_units": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unicode_scalars": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lines": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "offset_basis": {
+            "type": "string",
+            "enum": [
+              "submitted-bytes",
+              "utf8-encoding-of-input-string"
+            ]
+          }
+        }
+      },
+      "InvalidUtf8InputMetrics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "bytes",
+          "offset_basis"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "bytes"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "offset_basis": {
+            "type": "string",
+            "const": "submitted-bytes"
+          }
+        }
+      },
+      "ValidEncoding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "valid_utf8",
+          "basis"
+        ],
+        "properties": {
+          "valid_utf8": {
+            "type": "boolean",
+            "const": true
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "submitted-bytes",
+              "strict-request-envelope-and-reencoded-text"
+            ]
+          }
+        }
+      },
+      "InvalidEncoding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "valid_utf8",
+          "basis",
+          "first_invalid_byte"
+        ],
+        "properties": {
+          "valid_utf8": {
+            "type": "boolean",
+            "const": false
+          },
+          "basis": {
+            "type": "string",
+            "const": "submitted-bytes"
+          },
+          "first_invalid_byte": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "SkippedCheck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check",
+          "reason"
+        ],
+        "properties": {
+          "check": {
+            "type": "string",
+            "enum": [
+              "hidden-characters",
+              "mojibake",
+              "normalization",
+              "mixed-script-confusables",
+              "text-counts",
+              "json-validation",
+              "code-points"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "const": "invalid_utf8"
+          }
+        }
+      },
+      "Summary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "total",
+          "returned",
+          "truncated"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "returned": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SourceLocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "byte_start",
+          "byte_end",
+          "utf16_start",
+          "utf16_end",
+          "scalar_start",
+          "scalar_end",
+          "line",
+          "column"
+        ],
+        "properties": {
+          "byte_start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "byte_end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "utf16_start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "utf16_end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "scalar_start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "scalar_end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "line_end": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column_end": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "description": "Zero-based half-open byte, UTF-16, and scalar offsets with one-based line and column coordinates. End coordinates are present on Unicode-review findings."
+      },
+      "ObservedCodePoints": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "escaped",
+          "code_points",
+          "utf8_hex"
+        ],
+        "properties": {
+          "escaped": {
+            "type": "string"
+          },
+          "code_points": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^U\\+[0-9A-F]{4,6}$"
+            }
+          },
+          "utf8_hex": {
+            "type": "string"
+          }
+        }
+      },
+      "HiddenFinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "rule",
+          "category",
+          "severity",
+          "title",
+          "location",
+          "observed",
+          "explanation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "hidden_text",
+              "formatting",
+              "bidirectional",
+              "control",
+              "whitespace"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "information",
+              "warning",
+              "error"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/SourceLocation"
+          },
+          "observed": {
+            "$ref": "#/components/schemas/ObservedCodePoints"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        }
+      },
+      "HiddenAnalysisSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "status",
+          "engine_version",
+          "ruleset_version",
+          "unicode_version",
+          "profile",
+          "input",
+          "encoding",
+          "summary",
+          "findings"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "issues_found"
+            ]
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "ruleset_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputMetrics"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/ValidEncoding"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/Summary"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HiddenFinding"
+            },
+            "maxItems": 500
+          }
+        }
+      },
+      "HiddenInvalidUtf8Response": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "status",
+          "engine_version",
+          "unicode_version",
+          "input",
+          "encoding",
+          "skipped",
+          "ruleset_version",
+          "summary",
+          "findings"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "const": "invalid_utf8"
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InvalidUtf8InputMetrics"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/InvalidEncoding"
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkippedCheck"
+            },
+            "maxItems": 1
+          },
+          "ruleset_version": {
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/Summary"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HiddenFinding"
+            },
+            "maxItems": 0
+          }
+        }
+      },
+      "HiddenAnalysisResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/HiddenAnalysisSuccess"
+          },
+          {
+            "$ref": "#/components/schemas/HiddenInvalidUtf8Response"
+          }
+        ]
+      },
+      "ToolInvalidUtf8Response": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "status",
+          "engine_version",
+          "unicode_version",
+          "input",
+          "encoding",
+          "skipped"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "const": "invalid_utf8"
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InvalidUtf8InputMetrics"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/InvalidEncoding"
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkippedCheck"
+            },
+            "maxItems": 1
+          }
+        }
+      },
+      "CharacterDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "escaped",
+          "code_point",
+          "utf8_hex",
+          "name",
+          "category",
+          "script"
+        ],
+        "properties": {
+          "escaped": {
+            "type": "string"
+          },
+          "code_point": {
+            "type": "string",
+            "pattern": "^U\\+[0-9A-F]{4,6}$"
+          },
+          "utf8_hex": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "pattern": "^[A-Z][a-z]$"
+          },
+          "script": {
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/SourceLocation"
+          }
+        }
+      },
+      "BoundedCharacterDetails": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "characters",
+          "total",
+          "returned",
+          "truncated"
+        ],
+        "properties": {
+          "characters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CharacterDetail"
+            },
+            "maxItems": 500
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "returned": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MojibakeObserved": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "characters"
+        ],
+        "properties": {
+          "characters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CharacterDetail"
+            },
+            "maxItems": 4
+          },
+          "interpreted_bytes_hex": {
+            "type": "string"
+          }
+        }
+      },
+      "MojibakeFinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "rule",
+          "category",
+          "severity",
+          "title",
+          "location",
+          "observed",
+          "explanation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string",
+            "enum": [
+              "mojibake.replacement_character",
+              "mojibake.utf8_bytes_as_legacy_text"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "const": "mojibake"
+          },
+          "severity": {
+            "type": "string",
+            "const": "warning"
+          },
+          "title": {
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/SourceLocation"
+          },
+          "observed": {
+            "$ref": "#/components/schemas/MojibakeObserved"
+          },
+          "possible_intended_character": {
+            "$ref": "#/components/schemas/CharacterDetail"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        }
+      },
+      "MojibakeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "status",
+          "engine_version",
+          "unicode_version",
+          "input",
+          "encoding",
+          "check",
+          "summary",
+          "findings"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "issues_found"
+            ]
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputMetrics"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/ValidEncoding"
+          },
+          "check": {
+            "type": "string",
+            "const": "mojibake"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/Summary"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MojibakeFinding"
+            },
+            "maxItems": 500
+          }
+        }
+      },
+      "NormalizationMetrics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bytes",
+          "unicode_scalars",
+          "utf16_code_units",
+          "lines"
+        ],
+        "properties": {
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unicode_scalars": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "utf16_code_units": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lines": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "NormalizationForm": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "is_normalized",
+          "metrics"
+        ],
+        "properties": {
+          "is_normalized": {
+            "type": "boolean"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/NormalizationMetrics"
+          }
+        }
+      },
+      "NormalizationForms": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "NFC",
+          "NFD",
+          "NFKC",
+          "NFKD"
+        ],
+        "properties": {
+          "NFC": {
+            "$ref": "#/components/schemas/NormalizationForm"
+          },
+          "NFD": {
+            "$ref": "#/components/schemas/NormalizationForm"
+          },
+          "NFKC": {
+            "$ref": "#/components/schemas/NormalizationForm"
+          },
+          "NFKD": {
+            "$ref": "#/components/schemas/NormalizationForm"
+          }
+        }
+      },
+      "NormalizationFinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "rule",
+          "category",
+          "severity",
+          "title",
+          "form",
+          "location",
+          "observed",
+          "normalized",
+          "explanation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "const": "normalization"
+          },
+          "severity": {
+            "type": "string",
+            "const": "information"
+          },
+          "title": {
+            "type": "string"
+          },
+          "form": {
+            "type": "string",
+            "enum": [
+              "NFC",
+              "NFD",
+              "NFKC",
+              "NFKD"
+            ]
+          },
+          "location": {
+            "$ref": "#/components/schemas/SourceLocation"
+          },
+          "observed": {
+            "$ref": "#/components/schemas/BoundedCharacterDetails"
+          },
+          "normalized": {
+            "$ref": "#/components/schemas/BoundedCharacterDetails"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        }
+      },
+      "NormalizationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "status",
+          "engine_version",
+          "unicode_version",
+          "input",
+          "encoding",
+          "check",
+          "forms",
+          "summary",
+          "findings"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "normalized",
+              "changes_found"
+            ]
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputMetrics"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/ValidEncoding"
+          },
+          "check": {
+            "type": "string",
+            "const": "normalization"
+          },
+          "forms": {
+            "$ref": "#/components/schemas/NormalizationForms"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/Summary"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NormalizationFinding"
+            },
+            "maxItems": 4
+          }
+        }
+      },
+      "ConfusableData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "version",
+          "source_scripts",
+          "target_script",
+          "uts39_complete"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "curated_subset"
+          },
+          "version": {
+            "type": "string"
+          },
+          "source_scripts": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "const": "Cyrillic"
+              },
+              {
+                "type": "string",
+                "const": "Greek"
+              }
+            ],
+            "items": false
+          },
+          "target_script": {
+            "type": "string",
+            "const": "ASCII Latin"
+          },
+          "uts39_complete": {
+            "type": "boolean",
+            "const": false
+          }
+        }
+      },
+      "ScriptSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "script",
+          "count",
+          "first_scalar"
+        ],
+        "properties": {
+          "script": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "first_scalar": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "MixedScriptFinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "rule",
+          "category",
+          "severity",
+          "title",
+          "location",
+          "observed",
+          "explanation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string",
+            "enum": [
+              "mixed_script.character",
+              "confusable.curated_ascii_lookalike"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "mixed_script",
+              "confusable"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "const": "warning"
+          },
+          "title": {
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/SourceLocation"
+          },
+          "observed": {
+            "$ref": "#/components/schemas/CharacterDetail"
+          },
+          "looks_like": {
+            "$ref": "#/components/schemas/CharacterDetail"
+          },
+          "confusable_data_version": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        }
+      },
+      "MixedScriptResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "status",
+          "engine_version",
+          "unicode_version",
+          "input",
+          "encoding",
+          "check",
+          "confusable_data",
+          "scripts",
+          "dominant_script",
+          "is_mixed_script",
+          "expected_script_combination",
+          "review_recommended",
+          "summary",
+          "findings"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "issues_found"
+            ]
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputMetrics"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/ValidEncoding"
+          },
+          "check": {
+            "type": "string",
+            "const": "mixed_scripts_and_confusables"
+          },
+          "confusable_data": {
+            "$ref": "#/components/schemas/ConfusableData"
+          },
+          "scripts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScriptSummary"
+            }
+          },
+          "dominant_script": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_mixed_script": {
+            "type": "boolean"
+          },
+          "expected_script_combination": {
+            "type": "boolean"
+          },
+          "review_recommended": {
+            "type": "boolean"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/Summary"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MixedScriptFinding"
+            },
+            "maxItems": 500
+          }
+        }
+      },
+      "TextCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "utf8_bytes",
+          "unicode_code_points",
+          "unicode_scalars",
+          "grapheme_clusters",
+          "words",
+          "lines",
+          "javascript_string_units"
+        ],
+        "properties": {
+          "utf8_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unicode_code_points": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unicode_scalars": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "grapheme_clusters": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "words": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lines": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "javascript_string_units": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "TextCountsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "status",
+          "engine_version",
+          "unicode_version",
+          "input",
+          "encoding",
+          "counts"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "const": "complete"
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputMetrics"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/ValidEncoding"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/TextCounts"
+          }
+        }
+      },
+      "JsonError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "line",
+          "column",
+          "character_offset",
+          "byte_offset"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "trailing_comma",
+              "unexpected_end",
+              "comment_not_allowed",
+              "single_quoted_string",
+              "expected_value",
+              "expected_property_name",
+              "expected_colon",
+              "expected_comma_or_end",
+              "extra_data",
+              "unterminated_string",
+              "invalid_unicode_escape",
+              "invalid_escape",
+              "unescaped_control_character",
+              "unexpected_bom",
+              "non_standard_number",
+              "nesting_too_deep",
+              "invalid_syntax"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "character_offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "byte_offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ValidJsonResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "status",
+          "engine_version",
+          "unicode_version",
+          "input",
+          "encoding",
+          "valid",
+          "value_type"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "const": "valid_json"
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputMetrics"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/ValidEncoding"
+          },
+          "valid": {
+            "type": "boolean",
+            "const": true
+          },
+          "value_type": {
+            "type": "string",
+            "enum": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "InvalidJsonResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "status",
+          "engine_version",
+          "unicode_version",
+          "input",
+          "encoding",
+          "valid",
+          "error"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "const": "invalid_json"
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputMetrics"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/ValidEncoding"
+          },
+          "valid": {
+            "type": "boolean",
+            "const": false
+          },
+          "error": {
+            "$ref": "#/components/schemas/JsonError"
+          }
+        }
+      },
+      "JsonValidationResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ValidJsonResponse"
+          },
+          {
+            "$ref": "#/components/schemas/InvalidJsonResponse"
+          }
+        ]
+      },
+      "CodePointPosition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "byte_start",
+          "byte_end",
+          "code_point_start",
+          "code_point_end",
+          "javascript_unit_start",
+          "javascript_unit_end",
+          "line",
+          "column"
+        ],
+        "properties": {
+          "byte_start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "byte_end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "code_point_start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "code_point_end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "javascript_unit_start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "javascript_unit_end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CodePointItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "code_point",
+          "decimal",
+          "name",
+          "category",
+          "utf8_bytes",
+          "utf8_hex",
+          "position",
+          "visible"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "code_point": {
+            "type": "string",
+            "pattern": "^U\\+[0-9A-F]{4,6}$"
+          },
+          "decimal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "pattern": "^[A-Z][a-z]$"
+          },
+          "utf8_bytes": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "maxItems": 4
+          },
+          "utf8_hex": {
+            "type": "string"
+          },
+          "position": {
+            "$ref": "#/components/schemas/CodePointPosition"
+          },
+          "visible": {
+            "type": "string",
+            "description": "The character when printable, a dotted-circle form for a mark, or an escaped representation for controls, separators, and format characters."
+          }
+        }
+      },
+      "CodePointsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "status",
+          "engine_version",
+          "unicode_version",
+          "input",
+          "encoding",
+          "summary",
+          "characters"
+        ],
+        "properties": {
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "const": "complete"
+          },
+          "engine_version": {
+            "type": "string"
+          },
+          "unicode_version": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputMetrics"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/ValidEncoding"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/Summary"
+          },
+          "characters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodePointItem"
+            },
+            "maxItems": 500
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "invalid_envelope_utf8",
+              "invalid_base64",
+              "input_too_large",
+              "unsupported_profile",
+              "unsupported_media_type",
+              "unsupported_content_encoding",
+              "rate_limited",
+              "limiter_unavailable",
+              "internal_error"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "$ref": "#/components/schemas/RequestId"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          }
+        }
+      }
+    },
+    "responses": {
+      "InvalidRequest": {
+        "description": "The query or request is invalid.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "invalid_request",
+                "message": "The request body does not match the API contract.",
+                "request_id": "req_0123456789abcdef0123456789abcdef"
+              }
+            }
+          }
+        }
+      },
+      "AnalysisBadRequest": {
+        "description": "The strict envelope, UTF-8 envelope, Base64, or hidden profile is invalid.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "invalid_request",
+                "message": "The request body does not match the API contract.",
+                "request_id": "req_0123456789abcdef0123456789abcdef"
+              }
+            }
+          }
+        }
+      },
+      "MethodNotAllowedGet": {
+        "description": "Only GET is allowed.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "invalid_request",
+                "message": "The request body does not match the API contract.",
+                "request_id": "req_0123456789abcdef0123456789abcdef"
+              }
+            }
+          }
+        }
+      },
+      "MethodNotAllowedPost": {
+        "description": "Only POST and CORS OPTIONS are allowed.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "invalid_request",
+                "message": "The request body does not match the API contract.",
+                "request_id": "req_0123456789abcdef0123456789abcdef"
+              }
+            }
+          }
+        }
+      },
+      "InputTooLarge": {
+        "description": "The envelope or decoded input exceeds a limit.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "input_too_large",
+                "message": "The request or decoded input exceeds its size limit.",
+                "request_id": "req_0123456789abcdef0123456789abcdef"
+              }
+            }
+          }
+        }
+      },
+      "UnsupportedRequestEncoding": {
+        "description": "The media type or content encoding is unsupported.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "unsupported_media_type",
+                "message": "Content-Type must be application/json.",
+                "request_id": "req_0123456789abcdef0123456789abcdef"
+              }
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "The per-process anonymous quota is exhausted.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "rate_limited",
+                "message": "The anonymous API rate limit has been reached.",
+                "request_id": "req_0123456789abcdef0123456789abcdef"
+              }
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "The API could not complete the request.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "internal_error",
+                "message": "The API could not complete the request.",
+                "request_id": "req_0123456789abcdef0123456789abcdef"
+              }
+            }
+          }
+        }
+      },
+      "LimiterUnavailable": {
+        "description": "The anonymous limiter failed closed.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "limiter_unavailable",
+                "message": "The anonymous API limiter is unavailable.",
+                "request_id": "req_0123456789abcdef0123456789abcdef"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

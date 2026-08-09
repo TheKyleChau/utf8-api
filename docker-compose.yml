@@ -1,0 +1,22 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      API_RATE_LIMIT_HMAC_KEY: ${API_RATE_LIMIT_HMAC_KEY:?set a 32+ character secret}
+      LOCAL_DEVELOPMENT: ${LOCAL_DEVELOPMENT:-false}
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import http.client; connection = http.client.HTTPConnection("127.0.0.1", 8080,
+          timeout=5); connection.request("GET", "/v1/health");
+          raise SystemExit(0 if connection.getresponse().status == 200 else 1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

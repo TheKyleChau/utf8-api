@@ -1,0 +1,3 @@
+* text=auto eol=lf
+app/static/swagger-ui-bundle.js linguist-vendored
+app/static/swagger-ui.css linguist-vendored
