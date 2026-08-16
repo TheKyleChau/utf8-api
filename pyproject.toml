@@ -19,7 +19,7 @@ dev = [
   "httpx==0.28.1",
   "pytest==9.1.1",
   # Known-good pin; maintainers should verify and bump Ruff before the first release.
-  "ruff==0.16.1",
+  "ruff==0.16.2",
 ]
 
 [tool.pytest.ini_options]
