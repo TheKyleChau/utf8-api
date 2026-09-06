@@ -1,5 +1,5 @@
 fastapi==0.141.1
-pydantic==2.13.4
+pydantic==2.13.5
 uvicorn[standard]==0.52.1
 # Transitive floor pins for known CVEs; keep even if a direct dependency
 # would otherwise resolve them higher.
