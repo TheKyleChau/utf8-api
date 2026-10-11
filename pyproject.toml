@@ -5,7 +5,7 @@ description = "A strict UTF-8, Unicode, and JSON analysis API."
 license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
-  "fastapi==0.141.1",
+  "fastapi==0.142.2",
   "pydantic==2.13.4",
   "uvicorn[standard]==0.52.1",
   # Transitive floor pins for known CVEs; keep even if a direct dependency
